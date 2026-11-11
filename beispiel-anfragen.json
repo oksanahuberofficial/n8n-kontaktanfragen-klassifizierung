@@ -1,0 +1,18 @@
+[
+  {
+    "beschreibung": "Recruiter-Anfrage (erwartet: Recruiter-Anfrage)",
+    "body": { "name": "Erika Beispiel", "email": "erika.beispiel@example.com", "nachricht": "Guten Tag, ich betreue als Personalberaterin eine Position als Business Analyst in München und würde Ihnen die Stelle gern vorstellen." }
+  },
+  {
+    "beschreibung": "Projektanfrage (erwartet: Business & Projekt)",
+    "body": { "name": "Max Muster", "email": "max.muster@example.com", "nachricht": "Wir möchten unsere Angebotsanfragen automatisch sortieren lassen. Bieten Sie Workshops zu n8n an?" }
+  },
+  {
+    "beschreibung": "Unklare Anfrage (erwartet: Sonstiges, ggf. manuell prüfen)",
+    "body": { "name": "Test", "email": "test@example.com", "nachricht": "Hallo, kurze Frage." }
+  },
+  {
+    "beschreibung": "Pflichtfeld fehlt (erwartet: Fehlerantwort, kein KI-Aufruf)",
+    "body": { "name": "Ohne Mail", "email": "", "nachricht": "Bitte rufen Sie mich an." }
+  }
+]

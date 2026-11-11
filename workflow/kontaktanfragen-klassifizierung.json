@@ -1,0 +1,683 @@
+{
+  "name": "Kontaktanfragen-Klassifizierung (Website)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kontaktanfrage-website",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ebd4cdf5-9f35-4352-8eb5-d2a27181e087",
+      "name": "Kontaktformular-Eingang (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1088,
+        400
+      ],
+      "webhookId": "kontaktanfrage-website"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "name",
+              "type": "string",
+              "value": "={{ $json.body?.name ?? $json.name }}"
+            },
+            {
+              "id": "a2",
+              "name": "email",
+              "type": "string",
+              "value": "={{ $json.body?.email ?? $json.email }}"
+            },
+            {
+              "id": "a3",
+              "name": "nachricht",
+              "type": "string",
+              "value": "={{ $json.body?.nachricht ?? $json.nachricht }}"
+            },
+            {
+              "id": "a4",
+              "name": "quelle",
+              "type": "string",
+              "value": "={{ $json.body?.quelle ?? 'Kontaktformular Website' }}"
+            },
+            {
+              "id": "a5",
+              "name": "eingegangen_am",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "796cb322-19a6-4ca6-87b5-ce5d53074248",
+      "name": "Eingabe normalisieren",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.nachricht }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ecfc9a25-fd95-4198-9217-1355992500b2",
+      "name": "Pflichtfelder vollständig?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"error\", \"message\": \"Bitte geben Sie Ihre E-Mail-Adresse und eine Nachricht an.\" } }}",
+        "options": {}
+      },
+      "id": "215ede73-0830-40e4-9347-b1d8d11503d3",
+      "name": "Antwort: Fehlende Angaben",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('Eingabe normalisieren').first().json;\nconst raw = $input.first().json.output?.[0]?.content?.[0]?.text\n  ?? $input.first().json.message?.content\n  ?? $input.first().json.content\n  ?? $input.first().json.text\n  ?? '';\n\nlet parsed = null;\ntry {\n  const match = String(raw).match(/\\{[\\s\\S]*\\}/);\n  parsed = JSON.parse(match ? match[0] : raw);\n} catch (e) {\n  parsed = null;\n}\n\nconst gueltigeKategorien = ['Coaching', 'Business & Projekt', 'Recruiter-Anfrage', 'Sonstiges'];\nlet kategorie = parsed?.kategorie;\nlet konfidenz = typeof parsed?.konfidenz === 'number' ? parsed.konfidenz : 0;\nlet begruendung = parsed?.begruendung || 'Keine Begründung von der KI erhalten.';\nlet manuellPruefen = false;\n\nif (!gueltigeKategorien.includes(kategorie)) {\n  kategorie = 'Sonstiges';\n  manuellPruefen = true;\n  begruendung = 'Automatische Zuordnung fehlgeschlagen (ungültige oder fehlende Kategorie) – bitte manuell prüfen. ' + begruendung;\n}\n\nif (konfidenz < 0.55) {\n  manuellPruefen = true;\n}\n\nreturn [{\n  json: {\n    ...original,\n    kategorie,\n    konfidenz,\n    begruendung,\n    manuell_pruefen: manuellPruefen,\n  }\n}];"
+      },
+      "id": "70166570-5271-42a9-b9da-abf859463d19",
+      "name": "Klassifikation auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "s1",
+                    "leftValue": "={{ $json.kategorie }}",
+                    "rightValue": "Coaching",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "s2",
+                    "leftValue": "={{ $json.kategorie }}",
+                    "rightValue": "Business & Projekt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "s3",
+                    "leftValue": "={{ $json.kategorie }}",
+                    "rightValue": "Recruiter-Anfrage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "11a4d0f0-0665-4c0e-b227-a11b15b53ade",
+                    "leftValue": "={{ $json.kategorie }}",
+                    "rightValue": "Sonstiges",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "94b4fe01-b935-4ad3-a2c3-fa4c8c547309",
+      "name": "Nach Kategorie verzweigen",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "t1",
+              "name": "notion_status",
+              "type": "string",
+              "value": "Neu – Coaching"
+            },
+            {
+              "id": "t2",
+              "name": "email_betreff",
+              "type": "string",
+              "value": "=Vielen Dank für Ihre Anfrage, {{ $json.name }}"
+            },
+            {
+              "id": "t3",
+              "name": "email_text",
+              "type": "string",
+              "value": "=Guten Tag {{ $json.name }},\n\nvielen Dank für Ihr Interesse an einem Coaching. Ich habe Ihre Nachricht erhalten und melde mich innerhalb von 1–2 Werktagen persönlich bei Ihnen.\n\nViele Grüße\nOksana Huber"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a679bfb9-165e-4baa-affe-62f53fed97a7",
+      "name": "Text: Coaching",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "t1",
+              "name": "notion_status",
+              "type": "string",
+              "value": "Neu – Business & Projekt"
+            },
+            {
+              "id": "t2",
+              "name": "email_betreff",
+              "type": "string",
+              "value": "=Vielen Dank für Ihre Anfrage, {{ $json.name }}"
+            },
+            {
+              "id": "t3",
+              "name": "email_text",
+              "type": "string",
+              "value": "=Guten Tag {{ $json.name }},\n\nvielen Dank für Ihr Interesse an einer Zusammenarbeit im Bereich KI-Management & Automatisierung. Ich melde mich innerhalb von 1–2 Werktagen bei Ihnen, um die nächsten Schritte zu besprechen.\n\nViele Grüße\nOksana Huber"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "044d28ef-af62-4c21-9bc8-a09fa68c2357",
+      "name": "Text: Business & Projekt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "t1",
+              "name": "notion_status",
+              "type": "string",
+              "value": "Neu – Recruiter"
+            },
+            {
+              "id": "t2",
+              "name": "email_betreff",
+              "type": "string",
+              "value": "Vielen Dank für Ihre Nachricht"
+            },
+            {
+              "id": "t3",
+              "name": "email_text",
+              "type": "string",
+              "value": "=Guten Tag {{ $json.name }},\n\nvielen Dank für Ihre Anfrage. Ich habe Ihre Nachricht erhalten und melde mich zeitnah bei Ihnen.\n\nViele Grüße\nOksana Huber"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "bb19ea44-149c-4d61-882e-38c04f51e2da",
+      "name": "Text: Recruiter-Anfrage",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "t1",
+              "name": "notion_status",
+              "type": "string",
+              "value": "={{ $json.manuell_pruefen ? 'Neu – manuell prüfen' : 'Neu – Sonstiges' }}"
+            },
+            {
+              "id": "t2",
+              "name": "email_betreff",
+              "type": "string",
+              "value": "Ihre Nachricht ist angekommen"
+            },
+            {
+              "id": "t3",
+              "name": "email_text",
+              "type": "string",
+              "value": "=Guten Tag {{ $json.name }},\n\nvielen Dank für Ihre Nachricht. Ich habe sie erhalten und melde mich, sobald ich sie gelesen habe.\n\nViele Grüße\nOksana Huber"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "083c754e-f101-49f9-b149-fdb9c950a5ab",
+      "name": "Text: Sonstiges",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "DEINE_NOTION_DATENBANK_ID",
+          "mode": "id"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.name }}"
+            },
+            {
+              "key": "E-Mail|rich_text",
+              "textContent": "={{ $json.email }}"
+            },
+            {
+              "key": "Nachricht|rich_text",
+              "textContent": "={{ $json.nachricht }}"
+            },
+            {
+              "key": "Kategorie|select",
+              "selectValue": "={{ $json.kategorie }}"
+            },
+            {
+              "key": "Status|select",
+              "selectValue": "={{ $json.notion_status }}"
+            },
+            {
+              "key": "Konfidenz|number",
+              "numberValue": "={{ $json.konfidenz }}"
+            },
+            {
+              "key": "Begründung|rich_text",
+              "textContent": "={{ $json.begruendung }}"
+            },
+            {
+              "key": "Manuell prüfen|checkbox",
+              "checkboxValue": "={{ $json.manuell_pruefen }}"
+            },
+            {
+              "key": "Quelle|rich_text",
+              "textContent": "={{ $json.quelle }}"
+            },
+            {
+              "key": "Eingegangen am|date",
+              "date": "={{ $json.eingegangen_am }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eb621df1-cc7e-4511-ba6a-2a716c5aca1f",
+      "name": "Eintrag in Notion erstellen",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Nach Kategorie verzweigen').item.json.email }}",
+        "subject": "={{ $('Nach Kategorie verzweigen').item.json.kategorie === 'Coaching' ? $('Text: Coaching').item.json.email_betreff : $('Nach Kategorie verzweigen').item.json.kategorie === 'Business & Projekt' ? $('Text: Business & Projekt').item.json.email_betreff : $('Nach Kategorie verzweigen').item.json.kategorie === 'Recruiter-Anfrage' ? $('Text: Recruiter-Anfrage').item.json.email_betreff : $('Text: Sonstiges').item.json.email_betreff }}",
+        "message": "={{ $('Nach Kategorie verzweigen').item.json.kategorie === 'Coaching' ? $('Text: Coaching').item.json.email_text : $('Nach Kategorie verzweigen').item.json.kategorie === 'Business & Projekt' ? $('Text: Business & Projekt').item.json.email_text : $('Nach Kategorie verzweigen').item.json.kategorie === 'Recruiter-Anfrage' ? $('Text: Recruiter-Anfrage').item.json.email_text : $('Text: Sonstiges').item.json.email_text }}",
+        "options": {}
+      },
+      "id": "137f974b-625f-4f78-b349-37c122ced237",
+      "name": "Bestätigungsmail senden",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        704,
+        288
+      ],
+      "webhookId": "49f0649f-e4f4-4aa2-b4d2-18aa8391bd70"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"ok\", \"message\": \"Vielen Dank für Ihre Nachricht. Ich habe sie erhalten und melde mich bei Ihnen.\" } }}",
+        "options": {}
+      },
+      "id": "9313255e-14c6-4039-a283-e2de7331785e",
+      "name": "Antwort: Erfolgreich empfangen",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        928,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Du bist ein Klassifizierungsassistent für eingehende Kontaktanfragen über das Kontaktformular der Website von Oksana Huber (Business Coaching, Karriere- & Bewerbungscoaching, Persönlichkeitsentwicklung, KI-Management & Automatisierung).\n\nOrdne jede Anfrage GENAU EINER der folgenden vier Kategorien zu:\n1. \"Coaching\" – Privatpersonen mit Interesse an 1:1-Coaching, Bewerbungscoaching, Persönlichkeitsentwicklung, Kursen/Programmen.\n2. \"Business & Projekt\" – Unternehmen/Selbstständige mit Anfragen zu Projekten, Workshops, Vorträgen, KI-Beratung, Automatisierung (n8n), Kooperationen.\n3. \"Recruiter-Anfrage\" – Personalvermittler/Recruiter zu offenen Stellen oder Vermittlungsangeboten.\n4. \"Sonstiges\" – alles, was nicht eindeutig in 1–3 passt (z. B. Presse, technische Fragen zur Website, unklare Anfragen).\n\nAntworte AUSSCHLIESSLICH mit einem JSON-Objekt in exakt diesem Format, ohne zusätzlichen Text davor oder danach:\n{\"kategorie\": \"<eine der vier Kategorien>\", \"konfidenz\": <Zahl zwischen 0 und 1>, \"begruendung\": \"<ein kurzer Satz auf Deutsch>\"}"
+            },
+            {
+              "content": "=Name: {{ $json.name }}\nE-Mail: {{ $json.email }}\nNachricht:\n{{ $json.nachricht }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -480,
+        288
+      ],
+      "id": "cb97984b-b8c5-43bc-b750-c6802a13fd17",
+      "name": "Message a model"
+    }
+  ],
+  "connections": {
+    "Kontaktformular-Eingang (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Eingabe normalisieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Eingabe normalisieren": {
+      "main": [
+        [
+          {
+            "node": "Pflichtfelder vollständig?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pflichtfelder vollständig?": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Antwort: Fehlende Angaben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Klassifikation auswerten": {
+      "main": [
+        [
+          {
+            "node": "Nach Kategorie verzweigen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nach Kategorie verzweigen": {
+      "main": [
+        [
+          {
+            "node": "Text: Coaching",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text: Business & Projekt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text: Recruiter-Anfrage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text: Sonstiges",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text: Coaching": {
+      "main": [
+        [
+          {
+            "node": "Eintrag in Notion erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text: Business & Projekt": {
+      "main": [
+        [
+          {
+            "node": "Eintrag in Notion erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text: Recruiter-Anfrage": {
+      "main": [
+        [
+          {
+            "node": "Eintrag in Notion erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text: Sonstiges": {
+      "main": [
+        [
+          {
+            "node": "Eintrag in Notion erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Eintrag in Notion erstellen": {
+      "main": [
+        [
+          {
+            "node": "Bestätigungsmail senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bestätigungsmail senden": {
+      "main": [
+        [
+          {
+            "node": "Antwort: Erfolgreich empfangen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Klassifikation auswerten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "tags": []
+}
